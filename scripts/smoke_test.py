@@ -127,7 +127,7 @@ def main() -> int:
         # ------------------------------------------------------------------
         if alert_id:
             triage = None
-            for _ in range(30):
+            for _ in range(180):
                 time.sleep(1)
                 response = client.get(f"{base}/alerts/{alert_id}", headers=headers)
                 if response.status_code == 200 and response.json().get("triage"):

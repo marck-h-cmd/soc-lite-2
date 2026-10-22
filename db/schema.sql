@@ -342,6 +342,8 @@ CREATE OR REPLACE RULE audit_log_no_delete AS ON DELETE TO audit_log DO INSTEAD 
 CREATE OR REPLACE FUNCTION audit_log_chain() RETURNS TRIGGER AS $$
 DECLARE prev_hash CHAR(64);
 BEGIN
+    -- Bloqueo transaccional consultivo para serializar inserciones concurrentes y evitar bifurcaciones en la cadena
+    PERFORM pg_advisory_xact_lock(847291847);
     SELECT hash_self INTO prev_hash FROM audit_log ORDER BY id DESC LIMIT 1;
     NEW.hash_prev := COALESCE(prev_hash, repeat('0', 64));
     NEW.hash_self := encode(digest(

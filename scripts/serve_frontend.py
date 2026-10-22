@@ -54,7 +54,7 @@ def build_handler(api_base: str):
             headers = {k: v for k, v in self.headers.items() if k.lower() not in HOP_BY_HOP}
             request = urllib.request.Request(url, data=payload, headers=headers, method=self.command)
             try:
-                with urllib.request.urlopen(request, timeout=180) as upstream:
+                with urllib.request.urlopen(request, timeout=360) as upstream:
                     body = upstream.read()
                     status = upstream.status
                     resp_headers = {

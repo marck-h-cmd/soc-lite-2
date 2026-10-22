@@ -114,8 +114,8 @@ class Settings(BaseSettings):
     # Microservicio LangChain (triaje LLM)
     # ------------------------------------------------------------------
     LANGCHAIN_SERVICE_URL: str = "http://localhost:8001"
-    LANGCHAIN_TIMEOUT_SECONDS: int = 120
-    LANGCHAIN_MAX_RETRIES: int = 3
+    LANGCHAIN_TIMEOUT_SECONDS: int = 360
+    LANGCHAIN_MAX_RETRIES: int = 1
     TRIAGE_PROMPT_VERSION: str = "triage_v3"
     LLM_PROVIDER: Literal["ollama", "openai", "azure"] = "ollama"
     OLLAMA_BASE_URL: str = "http://localhost:11434"

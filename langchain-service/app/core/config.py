@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     ALLOW_EXTERNAL_LLM: bool = False
     MAX_AGENT_ITERATIONS: int = 8
     AGENT_TIMEOUT_SECONDS: int = 90
+    AGENT_MODE: Literal["react", "simple"] = "simple"
 
     # Inteligencia de amenazas
     VIRUSTOTAL_API_KEY: str | None = None

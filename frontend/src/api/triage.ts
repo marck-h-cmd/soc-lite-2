@@ -15,8 +15,8 @@ import type {
 export async function run(alertId: number, force = false): Promise<TriageResult> {
   return http.post<TriageResult>(`/triage/${alertId}/run`, undefined, {
     params: buildParams({ force }),
-    // El triaje puede tardar varios segundos: se amplía el timeout del cliente (30 s).
-    timeout: 120000,
+    // El triaje en CPU local con LLM puede tardar hasta 3-4 minutos: timeout de 5 minutos (300 s).
+    timeout: 300000,
   });
 }
 

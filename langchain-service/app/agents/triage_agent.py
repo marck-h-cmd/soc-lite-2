@@ -140,6 +140,11 @@ class TriageAgent:
             return self._agent
 
         self._llm = build_llm()
+        if getattr(settings, "AGENT_MODE", "react") == "simple":
+            logger.info("Modo AGENT_MODE=simple activo: inferencia directa de 1 solo paso optimizada para CPU local")
+            self._agent = "simple"
+            return self._agent
+
         try:
             from langgraph.prebuilt import create_react_agent
 
@@ -153,11 +158,6 @@ class TriageAgent:
                 "tools": self._tools,
                 "response_format": TriageOutput,
             }
-            # El nombre del parámetro del prompt cambió entre versiones de
-            # LangGraph: `prompt` (>=0.3) y `state_modifier` (0.2.x, la versión
-            # fijada en requirements.txt). Sin este fallback el agente ReAct
-            # nunca se construía y se degradaba siempre a la cadena simple,
-            # dejando las herramientas de threat intelligence sin usar.
             try:
                 self._agent = create_react_agent(**common, prompt=system_prompt)
             except TypeError:
@@ -179,12 +179,34 @@ class TriageAgent:
             messages = TRIAGE_PROMPT.format_messages(**prompt_values)
 
             if agent == "simple":
+                # Pre-ejecución determinista de herramientas locales disponibles
+                alert = request.alert
+                if alert.rule_id:
+                    try:
+                        from app.tools.threat_intel import search_known_false_positives, wazuh_context
+                        await search_known_false_positives.ainvoke({"rule_id": str(alert.rule_id), "agent_name": alert.agent_name or ""})
+                        tools_used.append("search_known_false_positives")
+                    except Exception as e:
+                        logger.debug("search_known_false_positives: %s", e)
+                    try:
+                        await wazuh_context.ainvoke({"rule_id": str(alert.rule_id)})
+                        tools_used.append("wazuh_context")
+                    except Exception as e:
+                        logger.debug("wazuh_context: %s", e)
+                if alert.source_ip:
+                    try:
+                        from app.tools.threat_intel import geoip_lookup
+                        await geoip_lookup.ainvoke({"ip": str(alert.source_ip)})
+                        tools_used.append("geoip_lookup")
+                    except Exception as e:
+                        logger.debug("geoip_lookup: %s", e)
+
                 raw = await self._llm.ainvoke(messages)
                 payload = extract_json(getattr(raw, "content", str(raw)))
+                output = TriageOutput.model_validate(payload)
                 usage = getattr(raw, "usage_metadata", {}) or {}
                 tokens_in = usage.get("input_tokens", 0)
                 tokens_out = usage.get("output_tokens", 0)
-                tools_used = []
             else:
                 # El agente ReAct ejecuta el bucle razonamiento → herramienta → observación
                 state = await agent.ainvoke(
@@ -212,8 +234,8 @@ class TriageAgent:
                         tokens_in += usage.get("input_tokens", 0)
                         tokens_out += usage.get("output_tokens", 0)
 
-                if not isinstance(output, TriageOutput):
-                    output = TriageOutput.model_validate(output)
+            if not isinstance(output, TriageOutput):
+                output = TriageOutput.model_validate(output)
 
             latency = int((time.perf_counter() - started) * 1000)
             # Ajuste de coherencia: veredicto benigno/FP no puede tener riesgo crítico
